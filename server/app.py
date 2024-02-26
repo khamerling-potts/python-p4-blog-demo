@@ -53,6 +53,38 @@ class CompanyByID(Resource):
             return company.to_dict(), 200
         return {"error": "404 - Company not found"}, 404
 
+    def patch(self, id):
+        company = Company.query.filter_by(id=id).first()
+        data = request.get_json()
+
+        if company:
+            # Attempt to update Company attributes using request data
+            try:
+                # Using setattr() in this way is handy with unknown attributes
+                for attr in data:
+                    setattr(company, attr, data.get(attr))
+
+                # Attempting to add and commit the updated instance to the db
+                db.session.add(company)
+                db.session.commit()
+
+                # Return response with our updated company (serialized) and a status code
+                return company.to_dict(), 200
+            except:
+                return {"error": "422 - Unprocessable Entity"}, 422
+
+        return {"error": "404 - Company not found"}, 404
+
+    def delete(self, id):
+        company = Company.query.filter_by(id=id).first()
+
+        if company:
+            db.session.delete(company)
+            db.session.commit()
+            return {"message": "Company successfully deleted"}, 200
+
+        return {"error": "404 - Company not found"}, 404
+
 
 api.add_resource(CompanyByID, "/companies/<int:id>", endpoint="company")
 

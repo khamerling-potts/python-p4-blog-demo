@@ -120,7 +120,7 @@ class CompanyByID(Resource):
 api.add_resource(CompanyByID, "/companies/<int:id>", endpoint="company")
 ```
 
-We are filtering our `Company` query by the given `id` and returning a serialized version of our data with a 200 status code. `<int:id>` indicates that an integer representing the `id` will be in the URL of our GET request.
+We are filtering our `Company` query by the given `id` and returning a serialized version of our data with a 200 status code. `<int:id>` indicates that an integer representing the `id` will be passed to the route through the URL.
 
 You don't always have to return a successful status code, and it can be helpful to return error messages when something goes wrong with a request. For example, if we want to ensure that the requested company exists before returning a success code, we can modify our code as shown below:
 
@@ -155,6 +155,7 @@ class Companies(Resource):
         companies = [company.to_dict() for company in Company.query.all()]
         return companies, 200
 
+    # NEW POST METHOD
     def post(self):
         pass
 
@@ -162,7 +163,7 @@ class Companies(Resource):
 api.add_resource(Companies, "/companies", endpoint="companies")
 ```
 
-The user will be supplying data as JSON to be used for our new `Company` instance. This means that our request will have a body which can be parsed in the backend using `request.get_json()`, which returns a dictionary with the data for the new `Company`. `{'name': 'Awesome Games LLC', 'founder': 5}` is an example of a dictionary that we could have parsed from the request. We could then use `data.get('name')` or `data['name']` to retrieve the value associated with the `'name'` key.
+The user will be supplying data as JSON to be used for our new `Company` instance. This means that our request will have a body which can be parsed in the backend using `request.get_json()`, which returns a dictionary with the data for the new `Company`. `{'name': 'Awesome Games LLC', 'founder': 5}` is an example of a dictionary that we could have parsed from the request. We could then use `data.get('name')` or `data['name']` to retrieve the value associated with the `'name'` key. I prefer to use `.get()` rather than bracket notation because it returns `None` when a key is invalid instead of throwing an error.
 
 See the complete `post()` method below:
 
@@ -173,6 +174,7 @@ class Companies(Resource):
         companies = [company.to_dict() for company in Company.query.all()]
         return companies, 200
 
+    # NEW POST METHOD
     def post(self):
         data = request.get_json()
         try:
@@ -205,4 +207,103 @@ After successfully sending a POST request, we receive a response with the newly-
 
 ## PATCH
 
-We just created a new Company (assigned an `id` of 12 in my case, but this will depend on the size of your database). But what if we messed up and want to update the details of this company? We need to have a `patch()` method that takes in the `Company` `id` to update.
+We just created a new Company (assigned an `id` of 12 in my case, but this will depend on the size of your database). But what if we messed up and want to update the details of this company? We need to have a `patch()` method that takes in the `Company` `id` to update. This method is responsible for retrieving the specified `Company`, updating its attributes using the request data, re-adding it to the database, and returning a response with the updated `Company`.
+
+Because our PATCH request will update a `Company` by `id`, we can add this method to our `CompanyByID` resource and avoid creating new routes. We will use a try/except block again to handle any exceptions that may arise during the updating process.
+
+```python
+class CompanyByID(Resource):
+    def get(self, id):
+        company = Company.query.filter_by(id=id).first()
+        if company:
+            return company.to_dict(), 200
+        return {"error": "404 - Company not found"}, 404
+
+    # NEW PATCH METHOD
+    def patch(self, id):
+        company = Company.query.filter_by(id=id).first()
+        data = request.get_json()
+
+        if company:
+            # Attempt to update Company attributes using request data
+            try:
+                # Using setattr() in this way is handy with unknown attributes
+                for attr in data:
+                    setattr(company, attr, data.get(attr))
+
+                # Attempting to add and commit the updated instance to the db
+                db.session.add(company)
+                db.session.commit()
+
+                # Return response with our updated company (serialized) and a status code
+                return company.to_dict(), 200
+            except:
+                return {"error": "422 - Unprocessable Entity"}, 422
+
+        return {"error": "404 - Company not found"}, 404
+
+
+api.add_resource(CompanyByID, "/companies/<int:id>", endpoint="company")
+```
+
+Below is our request and response when successfully updating our new `Company`. We can see the same company returned to us (same `id` and `founding_date`) but with an updated `name` and `founder`.
+
+![patch](./patch.png)
+
+## DELETE
+
+For our final method, `delete()`, we want to query a `Company` by `id`, confirm that it exists (if desired), remove it from the database, and return a message with a success code. We can reuse the `CompanyByID` resource and URL for this method as well.
+
+This method is very straightforward as we're not attempting to update or create any instances.
+
+```python
+class CompanyByID(Resource):
+    def get(self, id):
+        company = Company.query.filter_by(id=id).first()
+        if company:
+            return company.to_dict(), 200
+        return {"error": "404 - Company not found"}, 404
+
+    def patch(self, id):
+        company = Company.query.filter_by(id=id).first()
+        data = request.get_json()
+
+        if company:
+            # Attempt to update Company attributes using request data
+            try:
+                # Using setattr() in this way is handy with unknown attributes
+                for attr in data:
+                    setattr(company, attr, data.get(attr))
+
+                # Attempting to add and commit the updated instance to the db
+                db.session.add(company)
+                db.session.commit()
+
+                # Return response with our updated company (serialized) and a status code
+                return company.to_dict(), 200
+            except:
+                return {"error": "422 - Unprocessable Entity"}, 422
+
+        return {"error": "404 - Company not found"}, 404
+
+    # NEW DELETE METHOD
+    def delete(self, id):
+        company = Company.query.filter_by(id=id).first()
+
+        if company:
+            db.session.delete(company)
+            db.session.commit()
+            return {"message": "Company successfully deleted"}, 204
+
+        return {"error": "404 - Company not found"}, 404
+
+
+api.add_resource(CompanyByID, "/companies/<int:id>", endpoint="company")
+```
+
+**Result of our DELETE request:**
+![delete](./delete.png)
+
+## Conclusion
+
+Creating this post deepened my own understandng of Flask-RESTful and I hope, at the very least, that it gave you some insight into your own API development. Not all applications have to follow RESTful principles, but it certainly improves readability and ease of use for others when applicable. After spending much time interacting with external APIs on the frontend and managing data on the backend, I'm eager to develop my own APIs and embrace fullstack development.
