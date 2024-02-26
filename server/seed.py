@@ -3,22 +3,24 @@
 from faker import Faker
 
 from app import app
-from models import db, Newsletter
+from models import db, Company
 
 
 with app.app_context():
-    
+
     fake = Faker()
 
-    Newsletter.query.delete()
+    Company.query.delete()
 
-    newsletters = []
-    for i in range(50):
-        newsletter = Newsletter(
-            title = fake.text(max_nb_chars=20),
-            body = fake.paragraph(nb_sentences=5),
+    companies = []
+    for i in range(10):
+        company = Company(
+            name=fake.text(max_nb_chars=20),
+            founder=fake.name(),
+            founding_date=fake.date_object(),
         )
-        newsletters.append(newsletter)
+        print(type(company.founding_date))
+        companies.append(company)
 
-    db.session.add_all(newsletters)
+    db.session.add_all(companies)
     db.session.commit()

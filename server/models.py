@@ -3,14 +3,14 @@ from sqlalchemy_serializer import SerializerMixin
 
 db = SQLAlchemy()
 
-class Newsletter(db.Model, SerializerMixin):
-    __tablename__ = 'newsletters'
+
+class Company(db.Model, SerializerMixin):
+    __tablename__ = "companies"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String)
-    body = db.Column(db.String)
-    published_at = db.Column(db.DateTime, server_default=db.func.now())
-    edited_at = db.Column(db.DateTime, onupdate=db.func.now())
+    name = db.Column(db.String)
+    founder = db.Column(db.String)
+    founding_date = db.Column(db.DateTime, server_default=db.func.now())
 
     def __repr__(self):
-        return f'<Newsletter {self.title}, published at {self.published_at}.>'
+        return f"<Company: {self.name}, Founder: {self.founder}>"
